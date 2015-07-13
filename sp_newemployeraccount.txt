@@ -1,0 +1,62 @@
+-- this procedure inserts data to the employer, employeraccount, account and account recovery tables.
+-- the procedure checks to see if an account already exists fort the user by checking if there is an existsing account email and username
+-- combination. The procedure also checks to see if this is not the first account associated with a particular employer.
+-- if an employer already exists in the system then the employer account will be associated with the pre-existing employer.
+-- TO DO:
+-- /% NEED TO NORMALIZE EMPLOYER TABLE TO INCLUDE EMPLOYER AND EMPLOYER CONTACT TABLE IN ORDER TO SATISFY THIS CRITERIA %/
+-- /% ADD EMPLOYER CONTACT TITLE FIELD %/
+
+create procedure sp_createnewemployeraccount
+
+@accountemail nvarchar,
+@accountusername nvarchar,
+@accountpassword nvarchar,
+@accounttype nvarchar,
+@accountrecoveryquestion nvarchar,
+@accountrecoveryanswer nvarchar,
+@employername nvarchar,
+@employercontactfirstname nvarchar,
+@employercontactlastname nvarchar
+
+
+as
+	if exists(
+	select accountemail, accountusername, accountrecoveryquestion
+	from account a join accountrecovery ar on a.accountkey =ar.accountkey
+	where accountemail = @accountemail and accountusername = @accountusername
+	)
+		begin
+			print 'this user account already exists, to access your user account please enter the correct 
+			user / password combination'
+		end
+	else
+declare @accountkey int
+	begin tran
+		begin try
+			insert into account
+				(accountkey, accountemail, accountusername, accountpassword, accounttype)
+				values (@accountkey, @accountemail, @accountusername, @accountpassword, @accounttype)	
+				set @accountkey = IDENT_CURRENT('account')
+			insert into accountrecovery
+				(accountrecoveryquestion, accountrecoveryanswer, accountkey)
+				values (@accountrecoveryquestion, @accountrecoveryanswer, @accountkey)
+				set @accountkey = IDENT_CURRENT('accountrecovery')
+	declare @employerkey int
+			insert into employer
+				(employerkey, employername, employercontactfirstname, employercontactlastname)
+				values (@employerkey, @employername, @employercontactfirstname, @employercontactlastname)
+				set @employerkey = IDENT_CURRENT('employer')
+			insert into employeraccount
+				(employerkey, accountkey)
+				values (@employerkey, @accountkey)
+				set @employerkey = IDENT_CURRENT('employer')
+				set @accountkey = IDENT_CURRENT('account')
+		commit tran
+		end try
+		begin catch
+			rollback tran
+		end catch
+	end
+
+
+	

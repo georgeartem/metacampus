@@ -1,0 +1,95 @@
+-- this procedure inserts data to the campusadmin, campus, campusadminaccount, account and account recovery tables while creating a new campusadmin account.
+-- the procedure checks to see if an account already exists by checking if there is an existsing account email and username
+-- combination. The procedure also checks to see if this is not the first account associated with a particular campus.
+-- if a campus already exists in the system then the campusadmin account will be associated with the pre-existing campus
+
+
+create procedure sp_createnewcampusadminaccount
+
+@accountemail nvarchar,
+@accountusername nvarchar,
+@accountpassword nvarchar,
+@accounttype nvarchar,
+@accountrecoveryquestion nvarchar,
+@accountrecoveryanswer nvarchar,
+@campusname nvarchar,
+@campusstate nvarchar,
+@campuscity nvarchar,
+@campusaccreditation nvarchar,
+@campusadminfirstname nvarchar,
+@campusadminlastname nvarchar,
+
+as
+	if exists(
+	select accountemail, accountusername, accountrecoveryquestion
+	from account a join accountrecovery ar on a.accountkey =ar.accountkey
+	where accountemail = @accountemail and accountusername = @accountusername
+	)
+		begin
+			print 'this user account already exists, to access your user account please enter the correct 
+			user / password combination'
+		end
+	else
+	declare @accountkey int
+		begin tran
+		begin try
+			insert into account
+				(accountkey, accountemail, accountusername, accountpassword, accounttype)
+				values (@accountkey, @accountemail, @accountusername, @accountpassword, @accounttype)	
+				set @accountkey = IDENT_CURRENT('account')
+			insert into accountrecovery
+				(accountrecoveryquestion, accountrecoveryanswer, accountkey)
+				values (@accountrecoveryquestion, @accountrecoveryanswer, @accountkey)
+				set @accountkey = IDENT_CURRENT('accountrecovery')
+			declare @campuskey int
+				if exists(
+					select campusname, campusstate, campuscity
+					from campus
+					where campusname = @campusname and campusstate = @campusstate and campuscity = @campuscity
+					)
+					begin
+					begin tran
+					begin try
+					declare @campusadminkey int
+					insert into campusadmin (campusadminfirstname, campusadminlastname, campusadminkey, campuskey)
+						values (@campusadminfirstname, @campusadminlastname, @campusadminkey, @campuskey)
+					set @campusadminkey = IDENT_CURRENT('campusadmin')
+					set @campuskey = IDENT_CURRENT('campus')
+					insert into campusadminaccount (campusadminkey, accountkey)
+						values (@campusadminkey, @accountkey)
+					commit tran
+					end try
+					begin catch
+						rollback tran
+					end catch
+					end
+				else 
+					begin
+					begin tran
+					begin try
+					insert into campus (campuskey, campusname, campusstate, campuscity,campusaccreditation)
+						values (@campuskey, @campusname, @campusstate, @campuscity, @campusaccreditation)
+						set @campuskey = IDENT_CURRENT('campus')
+				declare @campusadminkey int
+					insert into campusadmin (campusadminfirstname, campusadminlastname, campusadminkey, campuskey)
+						values (@campusadminfirstname, @campusadminlastname, @campusadminkey, @campuskey)
+						set @campusadminkey = IDENT_CURRENT('campusadmin')
+						set @campuskey = IDENT_CURRENT('campus')
+					insert into campusadminaccount (campusadminkey, accountkey)
+						values (@campusadminkey, @accountkey)
+						set @campusadminkey = IDENT_CURRENT('campusadmin')
+						set @accountkey = IDENT_CURRENT('account')
+					commit tran
+					end try
+					begin catch
+						rollback tran
+					end catch
+					end
+
+
+		commit tran
+		end try
+		begin catch
+			rollback tran
+		end catch
+	end

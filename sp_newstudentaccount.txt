@@ -1,0 +1,59 @@
+-- this procedure inserts data to the student, account and account recovery tables while creating a new student account.
+-- the procedure checks to see if an account already exists by checking if there is an existsing account email and username
+-- combination. 
+
+
+create procedure sp_createnewstudentaccount
+
+@accountemail nvarchar,
+@accountusername nvarchar,
+@accountpassword nvarchar,
+@accounttype nvarchar,
+@accountrecoveryquestion nvarchar,
+@accountrecoveryanswer nvarchar,
+@studentfirstname nvarchar,
+@studentlastname nvarchar,
+@studentid nvarchar,
+@studentdateofbirth date
+
+as
+	declare @accountkey int
+	if exists(
+	select accountemail, accountusername, accountrecoveryquestion
+	from account a join accountrecovery ar on a.accountkey =ar.accountkey
+	where accountemail = @accountemail and accountusername = @accountusername
+	)
+		begin
+			print 'this user account already exists, to access your user account please enter the correct 
+			user / password combination'
+		end
+	else
+		begin tran
+		begin try
+			insert into account
+				(accountkey, accountemail, accountusername, accountpassword, accounttype)
+				values (@accountkey, @accountemail, @accountusername, @accountpassword, @accounttype)	
+				set @accountkey = IDENT_CURRENT('account')
+			insert into accountrecovery
+				(accountrecoveryquestion, accountrecoveryanswer, accountkey)
+				values (@accountrecoveryquestion, @accountrecoveryanswer, @accountkey)
+				set @accountkey = IDENT_CURRENT('accountrecovery')
+			declare @studentkey int
+			insert into student
+				(studentfirstname, studentlastname, studentid, studentdateofbirth, studentkey)
+				values (@studentfirstname, @studentlastname, @studentid, @studentdateofbirth, @studentkey)
+				set @studentkey = IDENT_CURRENT('student')
+			insert into studentaccount
+				(studentkey, accountkey)
+				values (@studentkey, @accountkey)
+				set @studentkey = IDENT_CURRENT('studentaccount')
+				set @accountkey = IDENT_CURRENT('account')
+		commit tran
+		end try
+		begin catch
+			rollback tran
+		end catch
+	end
+
+
+
